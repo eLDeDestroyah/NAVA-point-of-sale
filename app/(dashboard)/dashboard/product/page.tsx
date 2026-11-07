@@ -96,6 +96,10 @@ export default function ProductPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const debounceRef = useRef<number | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -109,8 +113,12 @@ export default function ProductPage() {
   });
 
   const loadProducts = useCallback(
-    async (nextPage = page) => {
-      setIsLoading(true);
+    async (nextPage = page, withLoading = true) => {
+      if (withLoading) {
+        setIsLoading(true);
+      } else {
+        setIsSearchLoading(true);
+      }
 
       try {
         const params = new URLSearchParams({
@@ -153,7 +161,11 @@ export default function ProductPage() {
         setTotalItems(0);
         setTotalPages(1);
       } finally {
-        setIsLoading(false);
+        if (withLoading) {
+          setIsLoading(false);
+        } else {
+          setIsSearchLoading(false);
+        }
       }
     },
     [page, pageSize, searchQuery, selectedCategory, selectedStatus],
@@ -216,11 +228,29 @@ export default function ProductPage() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      void loadProducts(page);
+      const shouldShowLoading = !searchQuery.trim() && selectedCategory === "all" && selectedStatus === "all";
+      void loadProducts(page, shouldShowLoading);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [page, loadProducts]);
+  }, [page, loadProducts, searchQuery, selectedCategory, selectedStatus]);
+
+  function formatNumberInput(value: string) {
+    const digits = value.replace(/\D/g, "");
+    if (!digits) {
+      return "";
+    }
+
+    return Number(digits).toLocaleString("id-ID");
+  }
+
+  function handleFormattedNumberChange(field: "price" | "stock", value: string) {
+    const nextValue = value.replace(/[^\d]/g, "");
+    setForm((current) => ({
+      ...current,
+      [field]: formatNumberInput(nextValue),
+    }));
+  }
 
   function resetForm() {
     setForm({ name: "", category: "", price: "", stock: "" });
@@ -238,8 +268,8 @@ export default function ProductPage() {
     setForm({
       name: product.name,
       category: product.category,
-      price: String(product.price),
-      stock: String(product.stock),
+      price: formatNumberInput(String(product.price)),
+      stock: formatNumberInput(String(product.stock)),
     });
     setIsEditMode(true);
     setIsModalOpen(true);
@@ -249,29 +279,35 @@ export default function ProductPage() {
     const payload = {
       name: form.name.trim(),
       category: form.category.trim(),
-      price: Number(form.price || 0),
-      stock: Number(form.stock || 0),
+      price: Number((form.price || "").replace(/\./g, "") || 0),
+      stock: Number((form.stock || "").replace(/\./g, "") || 0),
     };
 
     if (!payload.name || !payload.category) {
       return;
     }
 
-    const response = await fetch(editingId ? `/api/products/${editingId}` : "/api/products", {
-      method: editingId ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    setIsSubmitting(true);
 
-    if (!response.ok) {
-      const data = (await response.json()) as { error?: string };
-      alert(data.error || "Gagal menyimpan produk.");
-      return;
+    try {
+      const response = await fetch(editingId ? `/api/products/${editingId}` : "/api/products", {
+        method: editingId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        alert(data.error || "Gagal menyimpan produk.");
+        return;
+      }
+
+      setIsModalOpen(false);
+      resetForm();
+      await loadProducts();
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsModalOpen(false);
-    resetForm();
-    await loadProducts();
   }
 
   async function handleDelete() {
@@ -279,23 +315,35 @@ export default function ProductPage() {
       return;
     }
 
-    const response = await fetch(`/api/products/${deleteTarget.id}`, {
-      method: "DELETE",
-    });
+    setIsDeleting(true);
 
-    if (!response.ok) {
-      const data = (await response.json()) as { error?: string };
-      alert(data.error || "Gagal menghapus produk.");
-      return;
+    try {
+      const response = await fetch(`/api/products/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        alert(data.error || "Gagal menghapus produk.");
+        return;
+      }
+
+      setDeleteTarget(null);
+      await loadProducts();
+    } finally {
+      setIsDeleting(false);
     }
-
-    setDeleteTarget(null);
-    await loadProducts();
   }
 
   async function handleLogout() {
-    await fetch("/api/logout", { method: "POST" });
-    router.replace("/login");
+    setIsLoggingOut(true);
+
+    try {
+      await fetch("/api/logout", { method: "POST" });
+      router.replace("/login");
+    } finally {
+      setIsLoggingOut(false);
+    }
   }
 
   const displayName = currentUser?.username?.trim() || "Pengguna";
@@ -310,6 +358,17 @@ export default function ProductPage() {
   const categorySelectValue = categoryOptions.some((item) => item.category === form.category)
     ? form.category
     : "__custom__";
+  const globalLoadingMessage = isLoggingOut
+    ? "Keluar..."
+    : isDeleting
+      ? "Menghapus produk..."
+      : isSubmitting
+        ? "Menyimpan produk..."
+        : isSearchLoading
+          ? "Mencari data..."
+          : "Memuat data...";
+
+  const showGlobalOverlay = (isLoading && !isSearchLoading) || isSubmitting || isDeleting || isLoggingOut;
 
   return (
     <div className="min-h-screen w-full bg-[#f3f3f1] text-slate-900">
@@ -321,9 +380,10 @@ export default function ProductPage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+              disabled={isLoggingOut || isSubmitting || isDeleting}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Logout
+              {isLoggingOut ? "Keluar..." : "Logout"}
             </button>
             <button className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-2 shadow-sm">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0d5c4b] text-[11px] font-bold text-white">
@@ -348,10 +408,11 @@ export default function ProductPage() {
 
               <button
                 onClick={openCreateModal}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#0d5c4b] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(13,92,75,0.22)] transition hover:bg-[#0a4d40]"
+                disabled={isSubmitting || isDeleting || isLoggingOut}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0d5c4b] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(13,92,75,0.22)] transition hover:bg-[#0a4d40] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <Plus className="h-4 w-4" />
-                Tambah Produk
+                {isSubmitting ? "Menyimpan..." : "Tambah Produk"}
               </button>
             </div>
 
@@ -422,7 +483,6 @@ export default function ProductPage() {
                   <tr>
                     <th className="px-4 py-3">Produk</th>
                     <th className="px-4 py-3">Kategori</th>
-                    <th className="px-4 py-3">Harga beli</th>
                     <th className="px-4 py-3">Harga jual</th>
                     <th className="px-4 py-3">Sisa stok</th>
                     <th className="px-4 py-3">Status</th>
@@ -450,7 +510,6 @@ export default function ProductPage() {
                         </td>
                         <td className="px-4 py-4 text-slate-600">{product.category}</td>
                         <td className="px-4 py-4 font-medium text-slate-700">{formatCurrency(product.price)}</td>
-                        <td className="px-4 py-4 font-medium text-slate-700">{formatCurrency(product.price * 1.35)}</td>
                         <td className="px-4 py-4 text-slate-600">{product.stock} pcs</td>
                         <td className="px-4 py-4">
                           <span
@@ -485,6 +544,15 @@ export default function ProductPage() {
         </main>
       </div>
 
+      {showGlobalOverlay && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/15 backdrop-blur-[1px]">
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 px-5 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-[#0d5c4b]" />
+            <span className="text-sm font-medium text-slate-700">{globalLoadingMessage}</span>
+          </div>
+        </div>
+      )}
+
       {deleteTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#000000]/20 backdrop-blur-[1px]">
           <div className="w-[420px] rounded-[24px] border border-slate-200 bg-[#f4f4f2] p-6 shadow-[0_30px_80px_rgba(15,23,42,0.18)]">
@@ -506,9 +574,10 @@ export default function ProductPage() {
               <button
                 type="button"
                 onClick={handleDelete}
-                className="rounded-xl bg-[#d14343] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(209,67,67,0.2)] hover:bg-[#bf3838]"
+                disabled={isDeleting}
+                className="rounded-xl bg-[#d14343] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(209,67,67,0.2)] hover:bg-[#bf3838] disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Hapus
+                {isDeleting ? "Menghapus..." : "Hapus"}
               </button>
             </div>
           </div>
@@ -543,6 +612,13 @@ export default function ProductPage() {
                 ? "Perbarui informasi produk yang dipilih."
                 : "Lengkapi informasi produk dan stok awal."}
             </p>
+
+            {isSubmitting ? (
+              <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
+                <span>{isEditMode ? "Menyimpan perubahan..." : "Menyimpan produk..."}</span>
+              </div>
+            ) : null}
 
             <div className="mt-4 space-y-4">
               <div>
@@ -591,12 +667,12 @@ export default function ProductPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">Harga</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Harga jual</label>
                   <input
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
                     value={form.price}
-                    onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))}
+                    onChange={(event) => handleFormattedNumberChange("price", event.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700 placeholder:text-slate-400 shadow-inner shadow-slate-100/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     placeholder="0"
                   />
@@ -605,10 +681,10 @@ export default function ProductPage() {
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-700">Stok</label>
                   <input
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
                     value={form.stock}
-                    onChange={(event) => setForm((current) => ({ ...current, stock: event.target.value }))}
+                    onChange={(event) => handleFormattedNumberChange("stock", event.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700 placeholder:text-slate-400 shadow-inner shadow-slate-100/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     placeholder="0"
                   />
