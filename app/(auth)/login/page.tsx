@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useState } from "react";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 
 import { loginAction } from "@/actions/auth";
@@ -12,8 +13,15 @@ const initialState = {
 };
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
+
+  useEffect(() => {
+    if (state.success) {
+      router.push("/dashboard");
+    }
+  }, [router, state.success]);
 
   return (
     <div className="w-full max-w-[520px] rounded-[30px] border border-[#e7e4df] bg-[#f5f5f2] p-4 shadow-[0_20px_70px_rgba(15,23,42,0.04)] sm:p-6 lg:p-7">

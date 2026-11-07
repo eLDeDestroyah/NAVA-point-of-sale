@@ -8,6 +8,10 @@ import {
   Wallet,
 } from "lucide-react";
 
+type SidebarUser = {
+  username?: string | null;
+};
+
 function BarChartIcon({ className = "" }: { className?: string }) {
   return (
     <svg
@@ -38,9 +42,18 @@ const navItems = [
   { label: "Pengaturan", icon: Settings, active: false },
 ];
 
-export function Sidebar() {
+export function Sidebar({ currentUser }: { currentUser?: SidebarUser | null }) {
+  const userName = currentUser?.username?.trim() || "Pengguna";
+  const initials = userName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase() || "U";
+
   return (
-    <aside className="flex w-[250px] flex-col border-r border-[#dfe7df] bg-[#f6f3f0] px-4 py-5">
+    <aside className="fixed left-0 top-0 z-30 flex h-screen w-[250px] flex-col border-r border-[#dfe7df] bg-[#f6f3f0] px-4 py-5">
       <div className="mb-8 flex items-center gap-3 px-2">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0d5c4b] text-lg font-black text-white shadow-md shadow-emerald-900/20">
           N
@@ -92,10 +105,10 @@ export function Sidebar() {
         <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0d5c4b] text-sm font-bold text-white">
-              AS
+              {initials}
             </div>
             <div>
-              <div className="text-sm font-semibold text-slate-800">Andi Saputra</div>
+              <div className="text-sm font-semibold text-slate-800">{userName}</div>
               <div className="text-[11px] text-slate-500">Pemilik toko</div>
             </div>
           </div>

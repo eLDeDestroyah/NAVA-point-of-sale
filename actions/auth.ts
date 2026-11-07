@@ -43,7 +43,10 @@ export async function loginAction(
 
   try {
     await loginUser(result.data);
-    redirect("/dashboard");
+    return {
+      success: true,
+      message: "Login berhasil.",
+    };
   } catch (error) {
     return {
       success: false,

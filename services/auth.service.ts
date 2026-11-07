@@ -93,3 +93,39 @@ export async function loginUser(input: LoginInput) {
 
   return safeUser;
 }
+
+export async function getCurrentUserProfile() {
+  const cookieStore = await cookies();
+  const userId = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+
+  if (!userId) {
+    return null;
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, username, email, membership, created_at")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || "Gagal memuat profil pengguna.");
+  }
+
+  return data
+    ? {
+        id: data.id,
+        username: data.username,
+        email: data.email,
+        membership: data.membership,
+        created_at: data.created_at,
+      }
+    : null;
+}
+
+export async function logoutUser() {
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE_NAME);
+}
