@@ -6,47 +6,17 @@ import { z } from "zod";
 import { loginUser, registerUser } from "@/services/auth.service";
 import type { AuthActionState } from "@/types/user.type";
 
-const normalizeEmail = (value: string) => value.trim().toLowerCase();
-
-const isValidEmail = (value: string) => {
-  const trimmed = value.trim();
-
-  if (!trimmed || trimmed.length > 254) return false;
-  if (trimmed.includes(" ")) return false;
-
-  const [localPart, ...domainParts] = trimmed.split("@");
-
-  if (!localPart || domainParts.length !== 1 || !domainParts[0]) return false;
-
-  const domain = domainParts[0];
-  const domainSegments = domain.split(".");
-
-  if (domainSegments.length < 2) return false;
-  if (domainSegments.some((segment) => segment.length === 0)) return false;
-
-  const localPattern = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$/;
-  const domainPattern = /^[A-Za-z0-9.-]+\.[A-Za-z]{2,63}$/;
-
-  return localPattern.test(localPart) && domainPattern.test(domain);
-};
-
 const loginSchema = z.object({
-  email: z
-    .string()
-    .transform(normalizeEmail)
-    .refine(isValidEmail, "Format email tidak valid."),
-  password: z.string().trim().min(6, "Password minimal 6 karakter."),
+  email: z.string().trim().email("Format email tidak valid."),
+  password: z.string().min(6, "Password minimal 6 karakter."),
 });
 
 const registerSchema = z
   .object({
     username: z.string().trim().min(3, "Username minimal 3 karakter."),
-    email: z
-      .string()
-      .transform(normalizeEmail)
-      .refine(isValidEmail, "Format email tidak valid."),
-    password: z.string().trim().min(6, "Password minimal 6 karakter."),
-    confirmPassword: z.string().trim().min(6, "Konfirmasi password minimal 6 karakter."),
+    email: z.string().trim().email("Format email tidak valid."),
+    password: z.string().min(6, "Password minimal 6 karakter."),
+    confirmPassword: z.string().min(6, "Konfirmasi password minimal 6 karakter."),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Konfirmasi password tidak cocok.",
