@@ -1,18 +1,22 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = request.cookies.get("nava_session")?.value;
 
   const isAuthRoute = pathname === "/login" || pathname === "/register";
   const isDashboardRoute = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
 
-  if (session && isAuthRoute) {
+  if (session && (isAuthRoute || pathname === "/")) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   if (!session && isDashboardRoute) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (!session && pathname === "/") {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

@@ -19,7 +19,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (state.success) {
-      router.push("/dashboard");
+      router.replace("/dashboard");
     }
   }, [router, state.success]);
 

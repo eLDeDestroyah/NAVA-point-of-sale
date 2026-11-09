@@ -78,7 +78,6 @@ export async function registerAction(
 
   try {
     await registerUser(result.data);
-    redirect("/login");
   } catch (error) {
     return {
       success: false,
@@ -86,4 +85,6 @@ export async function registerAction(
         error instanceof Error ? error.message : "Registrasi gagal, silakan coba lagi.",
     };
   }
+
+  redirect("/dashboard");
 }

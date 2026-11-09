@@ -4,8 +4,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
-import { Sidebar } from "@/components/dashboard/sidebar";
-
 type ProductRow = {
   id: string;
   name: string;
@@ -335,16 +333,16 @@ export default function ProductPage() {
     }
   }
 
-  async function handleLogout() {
-    setIsLoggingOut(true);
+  // async function handleLogout() {
+  //   setIsLoggingOut(true);
 
-    try {
-      await fetch("/api/logout", { method: "POST" });
-      router.replace("/login");
-    } finally {
-      setIsLoggingOut(false);
-    }
-  }
+  //   try {
+  //     await fetch("/api/logout", { method: "POST" });
+  //     router.replace("/login");
+  //   } finally {
+  //     setIsLoggingOut(false);
+  //   }
+  // }
 
   const displayName = currentUser?.username?.trim() || "Pengguna";
   const initials = displayName
@@ -371,12 +369,8 @@ export default function ProductPage() {
   const showGlobalOverlay = (isLoading && !isSearchLoading) || isSubmitting || isDeleting || isLoggingOut;
 
   return (
-    <div className="min-h-screen w-full bg-[#f3f3f1] text-slate-900">
-      <div className="flex min-h-screen w-full">
-        <Sidebar currentUser={currentUser} />
-
-        <main className="ml-[250px] flex-1 p-6">
-          <header className="mb-6 flex items-center justify-end gap-3">
+    <div className="w-full">
+          {/* <header className="mb-6 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={handleLogout}
@@ -391,7 +385,7 @@ export default function ProductPage() {
               </div>
               <span className="pr-1 text-sm font-medium text-slate-700">{displayName}</span>
             </button>
-          </header>
+          </header> */}
 
           <div className="rounded-[28px] border border-slate-200 bg-[#f5f5f2] p-6 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
             <div className="mb-6 flex items-center justify-between">
@@ -541,8 +535,6 @@ export default function ProductPage() {
               </table>
             </div>
           </div>
-        </main>
-      </div>
 
       {showGlobalOverlay && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/15 backdrop-blur-[1px]">
