@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronRight,
   Minus,
@@ -10,6 +10,11 @@ import {
   ShoppingBag,
   Wallet,
 } from "lucide-react";
+
+import {
+  PaymentSuccessModal,
+  type TransactionReceiptData,
+} from "@/components/dashboard/payment-success-modal";
 
 type ProductItem = {
   id: string;
@@ -57,6 +62,8 @@ export default function CashierPage() {
   const [customerName, setCustomerName] = useState("");
   const [nominal, setNominal] = useState(String(initialCart.reduce((sum, item) => sum + item.price * item.qty, 0)));
   const [cart, setCart] = useState<CartItem[]>(initialCart);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<TransactionReceiptData | null>(null);
 
   const subtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.qty, 0),
@@ -72,16 +79,69 @@ export default function CashierPage() {
   };
 
   const updateCartQty = (productId: string, delta: number) => {
-    setCart((current) =>
-      current
+    setCart((current) => {
+      const existing = current.find((item) => item.id === productId);
+      if (!existing && delta > 0) {
+        const product = products.find((p) => p.id === productId);
+        if (!product) return current;
+        return [
+          ...current,
+          { id: product.id, name: product.name, qty: 1, price: product.price },
+        ];
+      }
+      return current
         .map((item) =>
           item.id === productId
             ? { ...item, qty: Math.max(0, item.qty + delta) }
             : item,
         )
-        .filter((item) => item.qty > 0),
-    );
+        .filter((item) => item.qty > 0);
+    });
   };
+
+  const handlePayment = () => {
+    if (cart.length === 0) {
+      alert("Keranjang masih kosong! Silakan pilih produk terlebih dahulu.");
+      return;
+    }
+
+    const randomNum = Math.floor(100 + Math.random() * 9000);
+    const trxId = `TRX-${String(randomNum).padStart(4, "0")}`;
+
+    setReceiptData({
+      transactionId: `#${trxId}`,
+      items: [...cart],
+      subtotal,
+      paymentMethod,
+      customerName: customerName.trim() || undefined,
+      nominal: Number(nominal) || subtotal,
+      change: Math.max(0, (Number(nominal) || subtotal) - subtotal),
+      date: new Date(),
+    });
+
+    setIsSuccessModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsSuccessModalOpen(false);
+    // Reset keranjang setelah transaksi selesai
+    setCart([]);
+    setNominal("0");
+    setCustomerName("");
+  };
+
+  // Keyboard shortcut F9 untuk Bayar
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "F9") {
+        event.preventDefault();
+        handlePayment();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [cart, subtotal, paymentMethod, customerName, nominal]);
 
   return (
     <div className="mx-auto max-w-[1600px]">
@@ -309,7 +369,8 @@ export default function CashierPage() {
 
                 <button
                   type="button"
-                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0d5c4b] px-4 py-3 text-base font-bold text-white shadow-[0_12px_22px_rgba(13,92,75,0.18)]"
+                  onClick={handlePayment}
+                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0d5c4b] px-4 py-3 text-base font-bold text-white shadow-[0_12px_22px_rgba(13,92,75,0.18)] transition hover:bg-[#0a4d40] active:scale-[0.99]"
                 >
                   <span className="flex items-center gap-2">
                     <Wallet className="h-4 w-4" />
@@ -324,6 +385,13 @@ export default function CashierPage() {
                 </div>
               </aside>
             </div>
+
+            {/* Modal Pembayaran Berhasil */}
+            <PaymentSuccessModal
+              isOpen={isSuccessModalOpen}
+              onClose={handleCloseModal}
+              data={receiptData}
+            />
           </div>
   );
 }
