@@ -43,9 +43,9 @@ const navItems = [
   { label: "Kasir", icon: ShoppingBag, href: "/dashboard/cashier" },
   { label: "Produk", icon: Package, href: "/dashboard/product" },
   { label: "Keuangan", icon: Wallet, href: "/dashboard/finance" },
-  { label: "Laporan", icon: BarChartIcon, href: "/dashboard" },
-  { label: "Chatbot", icon: MessageSquareText, href: "/dashboard" },
-  { label: "Pengaturan", icon: Settings, href: "/dashboard" },
+  { label: "Laporan", icon: BarChartIcon, href: "/dashboard/report" },
+  { label: "Chatbot", icon: MessageSquareText, href: "/dashboard/chatbot" },
+  { label: "Pengaturan", icon: Settings, href: "/dashboard/settings" },
 ];
 
 export function Sidebar({ currentUser }: { currentUser?: SidebarUser | null }) {
@@ -107,8 +107,14 @@ export function Sidebar({ currentUser }: { currentUser?: SidebarUser | null }) {
 
       <nav className="space-y-2">
         {navItems.map(({ label, icon: Icon, href }) => {
+          // Active: exact match untuk /dashboard, startsWith untuk sub-halaman lain
           const isActive =
-            pathname === href || (href === "/dashboard" && pathname === "/dashboard");
+            href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname === href || pathname.startsWith(href + "/");
+
+          // Halaman belum ada (Laporan, Chatbot, Pengaturan) — tampil disabled
+          const isComingSoon = ["/dashboard/report", "/dashboard/chatbot", "/dashboard/settings"].includes(href);
 
           return (
             <Link
@@ -117,11 +123,20 @@ export function Sidebar({ currentUser }: { currentUser?: SidebarUser | null }) {
               className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] transition ${
                 isActive
                   ? "bg-[#dfeae5] text-[#0d5c4b] shadow-inner shadow-emerald-900/5 font-semibold"
+                  : isComingSoon
+                  ? "font-medium text-slate-400 hover:bg-white/40 cursor-not-allowed opacity-60"
                   : "text-slate-700 hover:bg-white/60 font-medium"
               }`}
+              onClick={isComingSoon ? (e) => e.preventDefault() : undefined}
+              aria-disabled={isComingSoon}
             >
               <Icon className="h-5 w-5" />
               <span>{label}</span>
+              {isComingSoon && (
+                <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-200/70 rounded-full px-1.5 py-0.5">
+                  Soon
+                </span>
+              )}
             </Link>
           );
         })}
@@ -146,20 +161,6 @@ export function Sidebar({ currentUser }: { currentUser?: SidebarUser | null }) {
           </div>
         </Link>
 
-        {/* Tombol Logout di bawah Kasir Cepat */}
-        <button
-          type="button"
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-          className="flex w-full items-center justify-between rounded-2xl border border-rose-200/80 bg-rose-50/60 px-3.5 py-2.5 text-left text-sm font-medium text-rose-700 transition hover:bg-rose-100/80 hover:border-rose-300 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <div className="flex items-center gap-2.5">
-            <LogOut className="h-4 w-4 text-rose-600" />
-            <span>{isLoggingOut ? "Mengeluarkan..." : "Logout"}</span>
-          </div>
-          <span className="text-[11px] text-rose-500">Keluar</span>
-        </button>
-
         <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0d5c4b] text-sm font-bold text-white">
@@ -176,9 +177,9 @@ export function Sidebar({ currentUser }: { currentUser?: SidebarUser | null }) {
             title="Keluar"
             aria-label="Logout"
             disabled={isLoggingOut}
-            className="rounded-lg p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
           >
-            <ArrowRight className="h-4 w-4" />
+            <LogOut className="h-4 w-4" />
           </button>
         </div>
       </div>

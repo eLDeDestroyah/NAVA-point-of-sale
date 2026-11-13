@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS public.products (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   price numeric(12,2) NOT NULL DEFAULT 0,
+  buy_price numeric(12,2) NOT NULL DEFAULT 0,
   stock integer NOT NULL DEFAULT 0,
   status text NOT NULL DEFAULT 'aman' CHECK (status IN ('habis', 'aman', 'menipis')),
   image_path text,
@@ -92,3 +93,18 @@ CREATE INDEX IF NOT EXISTS idx_history_product_buyer_product_buyer_id
 
 CREATE INDEX IF NOT EXISTS idx_transactions_buyer_id
   ON public.transactions(buyer_id);
+
+CREATE TABLE IF NOT EXISTS public.cash_records (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
+  type text NOT NULL CHECK (type IN ('masuk', 'keluar')),
+  nominal bigint NOT NULL DEFAULT 0,
+  keterangan text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cash_records_shop_id
+  ON public.cash_records(shop_id);
+
+CREATE INDEX IF NOT EXISTS idx_cash_records_created_at
+  ON public.cash_records(created_at);

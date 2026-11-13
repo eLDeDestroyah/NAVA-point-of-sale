@@ -8,6 +8,7 @@ export type ProductRecord = {
   id: string;
   name: string;
   price: number;
+  buy_price: number;
   stock: number;
   status: ProductStatus;
   image_path: string | null;
@@ -20,6 +21,7 @@ export type ProductRecord = {
 export type ProductInput = {
   name: string;
   price: number;
+  buy_price?: number;
   stock: number;
   category: string;
   status?: ProductStatus;
@@ -28,17 +30,18 @@ export type ProductInput = {
 const DEMO_PRODUCTS: Array<{
   name: string;
   price: number;
+  buy_price: number;
   stock: number;
   category: string;
   status: ProductStatus;
   image_path: string | null;
 }> = [
-  { name: "Indomie Goreng", price: 2730, stock: 3, category: "Makanan", status: "menipis", image_path: null },
-  { name: "Aqua 600ml", price: 3120, stock: 18, category: "Minuman", status: "aman", image_path: null },
-  { name: "Kopi Kapal Api", price: 1950, stock: 4, category: "Minuman", status: "menipis", image_path: null },
-  { name: "Gula Pasir 1kg", price: 14430, stock: 0, category: "Sembako", status: "habis", image_path: null },
-  { name: "Teh Pucuk 350ml", price: 3900, stock: 12, category: "Minuman", status: "aman", image_path: null },
-  { name: "Roma Kelapa", price: 7410, stock: 9, category: "Makanan", status: "aman", image_path: null },
+  { name: "Indomie Goreng", price: 3500, buy_price: 2730, stock: 3, category: "Makanan", status: "menipis", image_path: null },
+  { name: "Aqua 600ml", price: 4000, buy_price: 3120, stock: 18, category: "Minuman", status: "aman", image_path: null },
+  { name: "Kopi Kapal Api", price: 2500, buy_price: 1950, stock: 4, category: "Minuman", status: "menipis", image_path: null },
+  { name: "Gula Pasir 1kg", price: 17500, buy_price: 14430, stock: 0, category: "Sembako", status: "habis", image_path: null },
+  { name: "Teh Pucuk 350ml", price: 5000, buy_price: 3900, stock: 12, category: "Minuman", status: "aman", image_path: null },
+  { name: "Roma Kelapa", price: 9500, buy_price: 7410, stock: 9, category: "Makanan", status: "aman", image_path: null },
 ];
 
 async function getCurrentUserId(): Promise<string | null> {
@@ -109,6 +112,7 @@ export async function seedDemoProductsForUser(userId: string) {
   const records = DEMO_PRODUCTS.map((product) => ({
     name: product.name,
     price: product.price,
+    buy_price: product.buy_price,
     stock: product.stock,
     status: product.status,
     image_path: product.image_path,
@@ -142,6 +146,7 @@ export async function createProductForCurrentUser(input: ProductInput): Promise<
   const safeName = input.name.trim();
   const safeCategory = input.category.trim();
   const safePrice = Number(input.price) || 0;
+  const safeBuyPrice = Number(input.buy_price ?? 0);
   const safeStock = Math.max(0, Number(input.stock) || 0);
 
   if (!safeName) {
@@ -154,18 +159,23 @@ export async function createProductForCurrentUser(input: ProductInput): Promise<
 
   const categoryId = await ensureCategoryExists(supabase, userId, safeCategory);
 
+  const insertPayload: Record<string, any> = {
+    name: safeName,
+    price: safePrice,
+    stock: safeStock,
+    status: input.status ?? resolveProductStatus(safeStock),
+    category_id: categoryId,
+    user_id: userId,
+    image_path: null,
+  };
+  if (input.buy_price !== undefined) {
+    insertPayload.buy_price = safeBuyPrice;
+  }
+
   const { data, error } = await supabase
     .from("products")
-    .insert({
-      name: safeName,
-      price: safePrice,
-      stock: safeStock,
-      status: input.status ?? resolveProductStatus(safeStock),
-      category_id: categoryId,
-      user_id: userId,
-      image_path: null,
-    })
-    .select("id, name, price, stock, status, image_path, category_id, user_id, created_at")
+    .insert(insertPayload)
+    .select("id, name, price, buy_price, stock, status, image_path, category_id, user_id, created_at")
     .single();
 
   if (error || !data) {
@@ -204,6 +214,7 @@ export async function updateProductForCurrentUser(
   const nextName = input.name?.trim() || "";
   const nextCategory = input.category?.trim() || "";
   const nextPrice = Number(input.price ?? 0);
+  const nextBuyPrice = Number(input.buy_price ?? 0);
   const nextStock = Math.max(0, Number(input.stock ?? existingProduct.stock) || 0);
 
   if (!nextName) {
@@ -216,18 +227,23 @@ export async function updateProductForCurrentUser(
 
   const categoryId = await ensureCategoryExists(supabase, userId, nextCategory);
 
+  const updatePayload: Record<string, any> = {
+    name: nextName,
+    price: nextPrice,
+    stock: nextStock,
+    status: input.status ?? resolveProductStatus(nextStock),
+    category_id: categoryId,
+  };
+  if (input.buy_price !== undefined) {
+    updatePayload.buy_price = nextBuyPrice;
+  }
+
   const { data, error } = await supabase
     .from("products")
-    .update({
-      name: nextName,
-      price: nextPrice,
-      stock: nextStock,
-      status: input.status ?? resolveProductStatus(nextStock),
-      category_id: categoryId,
-    })
+    .update(updatePayload)
     .eq("id", productId)
     .eq("user_id", userId)
-    .select("id, name, price, stock, status, image_path, category_id, user_id, created_at")
+    .select("id, name, price, buy_price, stock, status, image_path, category_id, user_id, created_at")
     .single();
 
   if (error || !data) {
@@ -320,7 +336,7 @@ export async function getProductsForCurrentUser(options?: {
 
   let query = supabase
     .from("products")
-    .select("id, name, price, stock, status, image_path, category_id, user_id, created_at", {
+    .select("id, name, price, buy_price, stock, status, image_path, category_id, user_id, created_at", {
       count: "exact",
     })
     .eq("user_id", userId)

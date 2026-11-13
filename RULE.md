@@ -286,6 +286,7 @@ erDiagram
     buyers ||--o{ product_buyer : "membeli"
     buyers ||--o{ transactions : "melakukan"
     product_buyer ||--o{ history_product_buyer : "riwayat bayar"
+    shops ||--o{ cash_records : "mencatat kas"
 
     users {
         uuid id PK
@@ -307,6 +308,7 @@ erDiagram
         uuid id PK
         text name
         float price
+        float buy_price
         int stock
         varchar status "habis, aman, menipis"
         text image_path
@@ -355,6 +357,15 @@ erDiagram
         varchar type "cash, qris, kasbon"
         bigint paid
         uuid buyer_id FK
+    }
+
+    cash_records {
+        uuid id PK
+        uuid shop_id FK
+        varchar type "masuk, keluar"
+        bigint nominal
+        text keterangan
+        timestamp created_at
     }
 ```
 

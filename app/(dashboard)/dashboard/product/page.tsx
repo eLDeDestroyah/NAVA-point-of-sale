@@ -8,6 +8,7 @@ type ProductRow = {
   id: string;
   name: string;
   price: number;
+  buy_price?: number;
   stock: number;
   status: "aman" | "habis" | "menipis";
   category: string;
@@ -107,6 +108,7 @@ export default function ProductPage() {
     name: "",
     category: "",
     price: "",
+    buy_price: "",
     stock: "",
   });
 
@@ -242,7 +244,7 @@ export default function ProductPage() {
     return Number(digits).toLocaleString("id-ID");
   }
 
-  function handleFormattedNumberChange(field: "price" | "stock", value: string) {
+  function handleFormattedNumberChange(field: "price" | "buy_price" | "stock", value: string) {
     const nextValue = value.replace(/[^\d]/g, "");
     setForm((current) => ({
       ...current,
@@ -251,7 +253,7 @@ export default function ProductPage() {
   }
 
   function resetForm() {
-    setForm({ name: "", category: "", price: "", stock: "" });
+    setForm({ name: "", category: "", price: "", buy_price: "", stock: "" });
     setEditingId(null);
   }
 
@@ -267,6 +269,7 @@ export default function ProductPage() {
       name: product.name,
       category: product.category,
       price: formatNumberInput(String(product.price)),
+      buy_price: formatNumberInput(String(product.buy_price ?? 0)),
       stock: formatNumberInput(String(product.stock)),
     });
     setIsEditMode(true);
@@ -278,6 +281,7 @@ export default function ProductPage() {
       name: form.name.trim(),
       category: form.category.trim(),
       price: Number((form.price || "").replace(/\./g, "") || 0),
+      buy_price: Number((form.buy_price || "").replace(/\./g, "") || 0),
       stock: Number((form.stock || "").replace(/\./g, "") || 0),
     };
 
@@ -477,7 +481,8 @@ export default function ProductPage() {
                   <tr>
                     <th className="px-4 py-3">Produk</th>
                     <th className="px-4 py-3">Kategori</th>
-                    <th className="px-4 py-3">Harga jual</th>
+                    <th className="px-4 py-3">Harga Beli</th>
+                    <th className="px-4 py-3">Harga Jual</th>
                     <th className="px-4 py-3">Sisa stok</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-center">Aksi</th>
@@ -503,7 +508,8 @@ export default function ProductPage() {
                           </div>
                         </td>
                         <td className="px-4 py-4 text-slate-600">{product.category}</td>
-                        <td className="px-4 py-4 font-medium text-slate-700">{formatCurrency(product.price)}</td>
+                        <td className="px-4 py-4 font-medium text-slate-500">{formatCurrency(product.buy_price ?? 0)}</td>
+                        <td className="px-4 py-4 font-semibold text-[#0d5c4b]">{formatCurrency(product.price)}</td>
                         <td className="px-4 py-4 text-slate-600">{product.stock} pcs</td>
                         <td className="px-4 py-4">
                           <span
@@ -657,9 +663,21 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">Harga jual</label>
+                  <label className="mb-2 block text-xs font-semibold text-slate-700">Harga Beli</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={form.buy_price}
+                    onChange={(event) => handleFormattedNumberChange("buy_price", event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700 placeholder:text-slate-400 shadow-inner shadow-slate-100/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-700">Harga Jual</label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -671,7 +689,7 @@ export default function ProductPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">Stok</label>
+                  <label className="mb-2 block text-xs font-semibold text-slate-700">Stok</label>
                   <input
                     type="text"
                     inputMode="numeric"

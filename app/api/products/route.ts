@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       name: typeof body.name === "string" ? body.name : "",
       category: typeof body.category === "string" ? body.category : "",
       price: Number(body.price ?? 0),
+      buy_price: body.buy_price !== undefined ? Number(body.buy_price ?? 0) : undefined,
       stock: Number(body.stock ?? 0),
       status: typeof body.status === "string" ? body.status : undefined,
     });
