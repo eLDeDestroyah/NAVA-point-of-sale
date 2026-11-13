@@ -30,6 +30,7 @@ export type TransactionRecord = {
   id: string;
   transaction_id: string;
   type: TransactionType;
+  paid: number;
   buyer_id: string;
   created_at?: string;
 };

@@ -321,6 +321,7 @@ erDiagram
         text address
         timestamp open
         time close
+        bigint balance
         uuid user_id FK
         timestamp created_at
     }
@@ -352,6 +353,7 @@ erDiagram
         uuid id PK
         text transaction_id
         varchar type "cash, qris, kasbon"
+        bigint paid
         uuid buyer_id FK
     }
 ```

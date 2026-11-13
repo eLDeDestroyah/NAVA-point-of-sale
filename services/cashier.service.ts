@@ -239,9 +239,10 @@ export async function createCashierTransaction(
     .insert({
       transaction_id: transactionCode,
       type: input.paymentMethod, // 'cash' | 'qris' | 'kasbon'
+      paid: Math.round(paid),
       buyer_id: buyer.id,
     })
-    .select("id, transaction_id, type, buyer_id, created_at")
+    .select("id, transaction_id, type, paid, buyer_id, created_at")
     .single();
 
   if (trxError || !transaction) {
@@ -322,6 +323,7 @@ export async function createCashierTransaction(
       id: transaction.id,
       transaction_id: transaction.transaction_id,
       type: transaction.type as "cash" | "qris" | "kasbon",
+      paid: Number(transaction.paid ?? paid),
       buyer_id: transaction.buyer_id,
       created_at: transaction.created_at,
     },

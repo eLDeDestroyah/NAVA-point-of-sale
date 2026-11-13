@@ -42,7 +42,7 @@ const navItems = [
   { label: "Dashboard", icon: LayoutGrid, href: "/dashboard" },
   { label: "Kasir", icon: ShoppingBag, href: "/dashboard/cashier" },
   { label: "Produk", icon: Package, href: "/dashboard/product" },
-  { label: "Keuangan", icon: Wallet, href: "/dashboard" },
+  { label: "Keuangan", icon: Wallet, href: "/dashboard/finance" },
   { label: "Laporan", icon: BarChartIcon, href: "/dashboard" },
   { label: "Chatbot", icon: MessageSquareText, href: "/dashboard" },
   { label: "Pengaturan", icon: Settings, href: "/dashboard" },

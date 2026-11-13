@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS public.shops (
   address text,
   open timestamptz NOT NULL,
   close time NOT NULL,
+  balance bigint NOT NULL DEFAULT 0,
   user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -66,6 +67,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   transaction_id text NOT NULL UNIQUE,
   type text NOT NULL DEFAULT 'cash' CHECK (type IN ('cash', 'qris', 'kasbon')),
+  paid bigint NOT NULL DEFAULT 0,
   buyer_id uuid NOT NULL REFERENCES public.buyers(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now()
 );
