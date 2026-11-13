@@ -166,13 +166,6 @@ export default function DashboardPage() {
           <div className="mt-2 text-[36px] font-extrabold tracking-tight">
             {isLoading ? "Memuat..." : formatCurrency(labaBersihToday)}
           </div>
-          <div className="mt-1 flex items-center gap-2 text-xs">
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 px-2.5 py-1 font-bold text-emerald-200">
-              <ArrowUpRight className="h-3 w-3" />
-              +12,4%
-            </span>
-            <span className="text-emerald-100/60">dibanding kemarin</span>
-          </div>
 
           {/* 3 mini stats */}
           <div className="mt-6 grid grid-cols-3 gap-3">
@@ -207,10 +200,6 @@ export default function DashboardPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50">
                 <Wallet className="h-5 w-5 text-orange-500" />
               </div>
-            </div>
-            <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-emerald-600">
-              <ArrowUpRight className="h-3.5 w-3.5" />
-              8,2% dari kemarin
             </div>
           </div>
 

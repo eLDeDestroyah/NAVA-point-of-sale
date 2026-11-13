@@ -65,39 +65,66 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
   const supabase = await getSupabaseServerClient();
   const shop = await ensureUserShop(userId);
 
-  // 1. Ambil transaksi penjualan dari kasir
-  const { data: transactions } = await supabase
-    .from("transactions")
-    .select("id, transaction_id, type, paid, buyer_id, created_at")
-    .order("created_at", { ascending: false });
+  // 1. Ambil ID produk milik user ini saja
+  const { data: userProducts } = await supabase
+    .from("products")
+    .select("id")
+    .eq("user_id", userId);
 
-  // 2. Ambil catatan kas manual (uang masuk / keluar) dari tabel cash_records
+  const userProductIds = (userProducts ?? []).map((p) => p.id);
+
+  let userBuyerIds = new Set<string>();
+  if (userProductIds.length > 0) {
+    const { data: pbs } = await supabase
+      .from("product_buyer")
+      .select("buyer_id")
+      .in("product_id", userProductIds);
+
+    userBuyerIds = new Set((pbs ?? []).map((pb) => pb.buyer_id));
+  }
+
+  // 2. Ambil transaksi penjualan hanya untuk buyer milik toko user
+  let transactions: any[] = [];
+  let buyers: any[] = [];
+
+  if (userBuyerIds.size > 0) {
+    const { data: trxs } = await supabase
+      .from("transactions")
+      .select("id, transaction_id, type, paid, buyer_id, created_at")
+      .in("buyer_id", Array.from(userBuyerIds))
+      .order("created_at", { ascending: false });
+
+    transactions = trxs ?? [];
+
+    const { data: byrs } = await supabase
+      .from("buyers")
+      .select("id, name, total_price, paid, status")
+      .in("id", Array.from(userBuyerIds));
+
+    buyers = byrs ?? [];
+  }
+
+  const buyerMap = new Map(buyers.map((b) => [b.id, b]));
+
+  // 3. Ambil catatan kas manual (uang masuk / keluar) dari tabel cash_records milik toko user
   const { data: cashRecords } = await supabase
     .from("cash_records")
     .select("id, type, nominal, keterangan, created_at")
     .eq("shop_id", shop.id)
     .order("created_at", { ascending: false });
 
-  // 3. Ambil data buyers (untuk kasbon)
-  const { data: buyers } = await supabase
-    .from("buyers")
-    .select("id, name, total_price, paid, status");
-
-  const buyerMap = new Map((buyers ?? []).map((b) => [b.id, b]));
-
   // Hitung total dari transaksi penjualan & cicilan kasbon
   let totalIncome = 0;
   let totalQris = 0;
   const cashFlows: CashRecord[] = [];
 
-  for (const trx of transactions ?? []) {
+  for (const trx of transactions) {
     const buyer = buyerMap.get(trx.buyer_id);
     const nominal = Number(trx.paid || 0);
 
     const isCicilan = trx.transaction_id?.startsWith("CICIL-");
     const isKasbonAwal = trx.type === "kasbon";
 
-    // Kasbon awal dengan paid=0 tidak masuk income (cicilan dicatat sendiri)
     if (isKasbonAwal && nominal === 0) continue;
 
     if (trx.type === "qris") {
@@ -183,11 +210,11 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
   totalIncome += totalCashIn;
   const currentBalance = Math.max(0, totalIncome - totalExpense);
 
-  // 4. Olah data kasbon pelanggan
+  // 4. Olah data kasbon pelanggan milik toko user
   const debtors: BuyerDebt[] = [];
   let totalPiutangAktif = 0;
 
-  for (const b of buyers ?? []) {
+  for (const b of buyers) {
     const totalPrice = Number(b.total_price || 0);
     const paid = Number(b.paid || 0);
     const remaining = Math.max(0, totalPrice - paid);
@@ -227,7 +254,6 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
 
 /**
  * Tambah catatan keuangan manual ke tabel cash_records
- * (uang masuk menambah saldo, uang keluar mengurangi saldo)
  */
 export async function addMoneyToShop(input: AddMoneyInput) {
   const userId = await getCurrentUserId();
@@ -242,10 +268,9 @@ export async function addMoneyToShop(input: AddMoneyInput) {
   const supabase = await getSupabaseServerClient();
   const shop = await ensureUserShop(userId);
 
-  // Simpan langsung ke tabel cash_records yang bersih & terpisah
   const { error } = await supabase.from("cash_records").insert({
     shop_id: shop.id,
-    type: input.type, // 'masuk' atau 'keluar'
+    type: input.type,
     nominal: input.nominal,
     keterangan: input.keterangan?.trim() || null,
   });
@@ -277,7 +302,6 @@ export async function payCustomerDebt(input: PayInstallmentInput) {
 
   const supabase = await getSupabaseServerClient();
 
-  // 1. Ambil data buyer
   const { data: buyer, error: buyerErr } = await supabase
     .from("buyers")
     .select("id, name, total_price, paid, status")
@@ -293,7 +317,6 @@ export async function payCustomerDebt(input: PayInstallmentInput) {
   const newPaid = currentPaid + input.nominal;
   const newStatus = newPaid >= totalPrice ? "lunas" : "kasbon";
 
-  // 2. Perbarui tabel buyers
   const { error: updateBuyerErr } = await supabase
     .from("buyers")
     .update({ paid: newPaid, status: newStatus })
@@ -303,8 +326,6 @@ export async function payCustomerDebt(input: PayInstallmentInput) {
     throw new Error(updateBuyerErr.message || "Gagal memperbarui data kasbon.");
   }
 
-  // 3. Catat cicilan sebagai transaksi di tabel transactions
-  //    agar muncul di riwayat kas sebagai "Masuk"
   const randomNum = Math.floor(1000 + Math.random() * 9000);
   const trxCode = `CICIL-${randomNum}`;
 

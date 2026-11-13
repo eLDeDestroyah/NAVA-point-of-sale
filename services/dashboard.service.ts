@@ -57,7 +57,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 
   const supabase = await getSupabaseServerClient();
 
-  // 1. Ambil data shop & user
+  // 1. Ambil data shop & user milik pengguna saat ini
   const { data: user } = await supabase
     .from("users")
     .select("username")
@@ -73,39 +73,53 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   const shopName = shop?.name || "NAVA MART";
   const userName = user?.username || "Pengguna";
 
-  // 2. Ambil data produk toko ini (termasuk buy_price, price, stock, category)
-  const { data: products } = await supabase
+  // 2. Ambil data produk milik user ini saja
+  const { data: userProducts } = await supabase
     .from("products")
     .select("id, name, price, buy_price, stock, status, categories(category)")
     .eq("user_id", userId);
 
-  const productMap = new Map((products ?? []).map((p) => [p.id, p]));
+  const productList = userProducts ?? [];
+  const userProductIds = new Set(productList.map((p) => p.id));
+  const productMap = new Map(productList.map((p) => [p.id, p]));
 
-  // 3. Ambil data product_buyer (untuk menghitung laba bersih per produk terjual)
-  // Laba per item = (product.price - product.buy_price) * qty
-  const { data: productBuyers } = await supabase
-    .from("product_buyer")
-    .select("id, total, price, product_id, buyer_id, created_at");
+  // Jika user belum punya produk sama sekali, berarti akun baru/kosong
+  let userBuyerIds = new Set<string>();
+  let userProductBuyers: any[] = [];
 
-  // 4. Ambil transactions & buyers
-  const { data: transactions } = await supabase
-    .from("transactions")
-    .select("id, transaction_id, type, paid, buyer_id, created_at")
-    .order("created_at", { ascending: false });
+  if (userProductIds.size > 0) {
+    // 3. Ambil relasi product_buyer hanya untuk produk milik user ini
+    const { data: pbs } = await supabase
+      .from("product_buyer")
+      .select("id, total, price, product_id, buyer_id, created_at")
+      .in("product_id", Array.from(userProductIds));
 
-  const { data: buyers } = await supabase
-    .from("buyers")
-    .select("id, name, total_price, paid, status");
-
-  const buyerMap = new Map((buyers ?? []).map((b) => [b.id, b]));
-
-  // Map transaksi buyer_id ke tanggal transaksi
-  const buyerTrxDateMap = new Map<string, Date>();
-  for (const trx of transactions ?? []) {
-    if (!buyerTrxDateMap.has(trx.buyer_id)) {
-      buyerTrxDateMap.set(trx.buyer_id, new Date(trx.created_at));
-    }
+    userProductBuyers = pbs ?? [];
+    userBuyerIds = new Set(userProductBuyers.map((pb) => pb.buyer_id));
   }
+
+  // 4. Ambil transactions & buyers yang berelasi dengan produk toko user ini saja
+  let transactions: any[] = [];
+  let buyers: any[] = [];
+
+  if (userBuyerIds.size > 0) {
+    const { data: trxs } = await supabase
+      .from("transactions")
+      .select("id, transaction_id, type, paid, buyer_id, created_at")
+      .in("buyer_id", Array.from(userBuyerIds))
+      .order("created_at", { ascending: false });
+
+    transactions = trxs ?? [];
+
+    const { data: byrs } = await supabase
+      .from("buyers")
+      .select("id, name, total_price, paid, status")
+      .in("id", Array.from(userBuyerIds));
+
+    buyers = byrs ?? [];
+  }
+
+  const buyerMap = new Map(buyers.map((b) => [b.id, b]));
 
   // Waktu hari ini (rentang start of day sampai sekarang)
   const now = new Date();
@@ -115,8 +129,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   let omzetToday = 0;
   let transaksiTodayCount = 0;
 
-  for (const trx of transactions ?? []) {
-    // Abaikan catatan internal kas keluar
+  for (const trx of transactions) {
     if (trx.transaction_id?.startsWith("KAS-OUT-")) continue;
 
     const trxDate = new Date(trx.created_at);
@@ -126,10 +139,10 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     }
   }
 
-  // 6. Hitung Laba Bersih Hari Ini dari product_buyer:
-  // Laba per item = (price - buy_price) * total
+  // 6. Hitung Laba Bersih Hari Ini dari produk toko yang terjual hari ini
+  // Rumus: (Harga Jual - Harga Beli) * qty
   let labaBersihToday = 0;
-  for (const pb of productBuyers ?? []) {
+  for (const pb of userProductBuyers) {
     const pbDate = new Date(pb.created_at);
     if (pbDate >= startOfToday) {
       const prod = productMap.get(pb.product_id);
@@ -142,17 +155,11 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     }
   }
 
-  // Jika belum ada penjualan hari ini tetapi ada omzet manual/default, fallback realistis
-  if (labaBersihToday === 0 && omzetToday > 0) {
-    labaBersihToday = Math.round(omzetToday * 0.25);
-  }
-
   const rataRataToday = transaksiTodayCount > 0 ? Math.round(omzetToday / transaksiTodayCount) : 0;
   const targetHarian = 60;
   const persentaseTarget = Math.min(100, Math.round((transaksiTodayCount / targetHarian) * 100));
 
-  // 7. Hitung Performa Penjualan (7 Hari, 30 Hari, 3 Bulan)
-  // Array 7 hari terakhir
+  // 7. Hitung Performa Penjualan real per user (7 Hari, 30 Hari, 3 Bulan)
   const days7Names = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
   const sales7Days: { label: string; value: number }[] = [];
   for (let i = 6; i >= 0; i--) {
@@ -162,7 +169,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
     let dayTotal = 0;
-    for (const trx of transactions ?? []) {
+    for (const trx of transactions) {
       if (trx.transaction_id?.startsWith("KAS-OUT-")) continue;
       const trxDate = new Date(trx.created_at);
       if (trxDate >= dayStart && trxDate <= dayEnd) {
@@ -175,19 +182,30 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     });
   }
 
-  // Array 30 hari (interval 5 harian)
+  // 30 hari
   const sales30Days: { label: string; value: number }[] = [];
   const intervals = [30, 25, 20, 15, 10, 5, 1];
   for (const interval of intervals) {
     const d = new Date(now);
     d.setDate(d.getDate() - interval);
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+    let val = 0;
+    for (const trx of transactions) {
+      if (trx.transaction_id?.startsWith("KAS-OUT-")) continue;
+      const trxDate = new Date(trx.created_at);
+      if (trxDate >= dayStart && trxDate <= dayEnd) {
+        val += Number(trx.paid || 0);
+      }
+    }
     sales30Days.push({
       label: String(31 - interval),
-      value: Math.round(omzetToday * (0.4 + (interval / 30) * 0.6)),
+      value: val,
     });
   }
 
-  // Array 3 bulan terakhir
+  // 3 bulan terakhir
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
   const sales3Months: { label: string; value: number }[] = [];
   for (let i = 2; i >= 0; i--) {
@@ -195,7 +213,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
 
     let monthTotal = 0;
-    for (const trx of transactions ?? []) {
+    for (const trx of transactions) {
       if (trx.transaction_id?.startsWith("KAS-OUT-")) continue;
       const trxDate = new Date(trx.created_at);
       if (trxDate >= m && trxDate <= mEnd) {
@@ -204,16 +222,16 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     }
     sales3Months.push({
       label: monthNames[m.getMonth()],
-      value: monthTotal > 0 ? monthTotal : Math.round(omzetToday * 20),
+      value: monthTotal,
     });
   }
 
-  // 8. Produk stok menipis / perlu dikulak
+  // 8. Produk stok menipis / perlu dikulak (hanya dari produk toko user)
   const lowStockProducts: DashboardSummary["lowStockProducts"] = [];
   let potentialLoss = 0;
   let outOfStockCount = 0;
 
-  for (const p of products ?? []) {
+  for (const p of productList) {
     const stock = Number(p.stock || 0);
     const catName = (p.categories as any)?.category || "Umum";
     if (stock <= 0) {
@@ -241,7 +259,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   // 9. Kasbon aktif & Alerts
   let kasbonPendingCount = 0;
   let totalKasbonAmount = 0;
-  for (const b of buyers ?? []) {
+  for (const b of buyers) {
     const totalPrice = Number(b.total_price || 0);
     const paid = Number(b.paid || 0);
     const remaining = Math.max(0, totalPrice - paid);
@@ -263,15 +281,15 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     alerts.push({
       type: "success",
       title: "Stok produk aman",
-      desc: "Tidak ada produk yang habis total saat ini.",
+      desc: "Tidak ada produk yang habis saat ini.",
     });
   }
 
   if (kasbonPendingCount > 0) {
     alerts.push({
       type: "warning",
-      title: `${kasbonPendingCount} kasbon jatuh tempo`,
-      desc: `Total tagihan Rp ${totalKasbonAmount.toLocaleString("id-ID")} belum lunas.`,
+      title: `${kasbonPendingCount} kasbon aktif`,
+      desc: `Total piutang Rp ${totalKasbonAmount.toLocaleString("id-ID")} belum lunas.`,
     });
   }
 
@@ -284,9 +302,9 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
         : `Kurang ${Math.max(0, targetHarian - transaksiTodayCount)} transaksi lagi hari ini.`,
   });
 
-  // 10. Transaksi Terakhir (3 transaksi terbaru)
+  // 10. Transaksi Terakhir (hanya transaksi milik toko user)
   const recentTransactions: DashboardSummary["recentTransactions"] = [];
-  const latestTrxList = (transactions ?? []).slice(0, 5);
+  const latestTrxList = transactions.slice(0, 5);
 
   for (const trx of latestTrxList) {
     const buyer = buyerMap.get(trx.buyer_id);
@@ -327,12 +345,11 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     recentTransactions,
     assistantSummary: {
       highlight: "Performa Toko",
-      description: `Omzet hari ini tercatat Rp ${omzetToday.toLocaleString("id-ID")}. ${
-        outOfStockCount > 0
-          ? `${outOfStockCount} produk habis dan perlu segera dikulak.`
-          : "Stok toko terpantau stabil."
-      }`,
-      potentialLoss: potentialLoss > 0 ? potentialLoss : 320000,
+      description:
+        transaksiTodayCount > 0
+          ? `Omzet hari ini tercatat Rp ${omzetToday.toLocaleString("id-ID")}.`
+          : "Belum ada transaksi hari ini.",
+      potentialLoss,
     },
   };
 }

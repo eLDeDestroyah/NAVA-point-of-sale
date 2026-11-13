@@ -63,9 +63,6 @@ export async function getCashierProducts(options?: {
 
   const supabase = await getSupabaseServerClient();
 
-  // Pastikan data demo ada jika user baru
-  await seedDemoProductsForUser(userId);
-
   let query = supabase
     .from("products")
     .select("id, name, price, stock, status, image_path, category_id, user_id, created_at")
