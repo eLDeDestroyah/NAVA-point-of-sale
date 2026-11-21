@@ -312,7 +312,8 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     const timeFormatted = trxDate.toLocaleTimeString("id-ID", {
       hour: "2-digit",
       minute: "2-digit",
-    });
+      timeZone: "Asia/Jakarta",
+    }).replace(".", ":");
 
     const isKasbon = trx.type === "kasbon" || buyer?.status === "kasbon";
 

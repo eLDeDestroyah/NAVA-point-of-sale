@@ -79,6 +79,10 @@ export default function CashierPage() {
     [cart],
   );
 
+  const numericNominal = Number(nominal) || 0;
+  const calculatedChange = Math.max(0, numericNominal - subtotal);
+  const isUnderpaid = paymentMethod !== "kasbon" && numericNominal < subtotal && subtotal > 0;
+
   const handlePaymentMethodChange = (method: "tunai" | "kasbon") => {
     setPaymentMethod(method);
     if (method === "tunai") {
@@ -126,13 +130,23 @@ export default function CashierPage() {
       return;
     }
 
+    const paidNum = Number(nominal) || 0;
+
+    // Validasi: jika bukan kasbon, uang yang dibayarkan tidak boleh kurang dari total pembayaran
+    if (paymentMethod !== "kasbon" && paidNum < subtotal) {
+      alert(
+        `Uang yang diterima (${formatCurrency(paidNum)}) kurang dari total pembayaran (${formatCurrency(subtotal)}). Silakan masukkan nominal yang pas atau lebih.`
+      );
+      return;
+    }
+
     try {
       setIsProcessingPayment(true);
 
       const payload = {
         customerName: customerName.trim() || undefined,
         paymentMethod: paymentMethod === "tunai" ? "cash" : "kasbon",
-        paidAmount: Number(nominal) || subtotal,
+        paidAmount: paidNum,
         items: cart.map((c) => ({
           productId: c.id,
           qty: c.qty,
@@ -428,17 +442,73 @@ export default function CashierPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600">
-                {paymentMethod === "kasbon" ? "Nominal Dibayar (DP/Cicilan)" : "Uang Diterima"}
-              </label>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-600">
+                  {paymentMethod === "kasbon" ? "Nominal Dibayar (DP/Cicilan)" : "Uang Diterima (Cust)"}
+                </label>
+                {paymentMethod !== "kasbon" && subtotal > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setNominal(String(subtotal))}
+                    className="text-[11px] font-bold text-[#0d5c4b] hover:underline"
+                  >
+                    Uang Pas ({formatCurrency(subtotal)})
+                  </button>
+                )}
+              </div>
               <input
                 type="number"
                 min="0"
                 value={nominal}
                 onChange={(e) => setNominal(e.target.value)}
                 placeholder="Masukkan nominal"
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                className={`w-full rounded-xl border bg-white px-3 py-2 text-base font-semibold text-slate-800 outline-none placeholder:text-slate-400 transition ${
+                  isUnderpaid
+                    ? "border-rose-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10"
+                    : "border-slate-200 focus:border-[#0d5c4b] focus:ring-2 focus:ring-[#0d5c4b]/10"
+                }`}
               />
+
+              {/* Pintasan Uang Cepat (Quick Cash Chips) */}
+              {paymentMethod !== "kasbon" && subtotal > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {[subtotal, 10000, 20000, 50000, 100000]
+                    .filter((val, idx, self) => val >= subtotal && self.indexOf(val) === idx)
+                    .slice(0, 4)
+                    .map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setNominal(String(val))}
+                        className={`rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
+                          numericNominal === val
+                            ? "border-[#0d5c4b] bg-[#0d5c4b] text-white"
+                            : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {formatCurrency(val)}
+                      </button>
+                    ))}
+                </div>
+              )}
+
+              {/* Informasi Kembalian / Kekurangan */}
+              {paymentMethod !== "kasbon" && subtotal > 0 && (
+                <div className="mt-2.5 rounded-xl bg-slate-50 p-2.5 border border-slate-200/80">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Kembalian:</span>
+                    <span
+                      className={`text-sm font-bold ${
+                        isUnderpaid ? "text-rose-600" : "text-emerald-700"
+                      }`}
+                    >
+                      {isUnderpaid
+                        ? `Kurang ${formatCurrency(subtotal - numericNominal)}`
+                        : formatCurrency(calculatedChange)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between border-t border-slate-200/80 pt-3 text-[15px] text-slate-700">

@@ -91,7 +91,8 @@ export function PaymentSuccessModal({
         new Date(data.date).toLocaleString("id-ID", {
           dateStyle: "medium",
           timeStyle: "short",
-        }),
+          timeZone: "Asia/Jakarta",
+        }).replace(".", ":") + " WIB",
         40,
         26,
         { align: "center" }
@@ -121,9 +122,17 @@ export function PaymentSuccessModal({
       doc.text("TOTAL", 6, y);
       doc.text(formatCurrency(data.subtotal), 74, y, { align: "right" });
 
-      y += 6;
+      y += 5;
       doc.setFont("courier", "normal");
       doc.setFontSize(8);
+      doc.text("Bayar (Tunai)", 6, y);
+      doc.text(formatCurrency(data.nominal ?? data.subtotal), 74, y, { align: "right" });
+
+      y += 5;
+      doc.text("Kembalian", 6, y);
+      doc.text(formatCurrency(data.change ?? 0), 74, y, { align: "right" });
+
+      y += 6;
       doc.text(
         `Metode: ${data.paymentMethod === "tunai" ? "Tunai" : "Kasbon"}`,
         6,
@@ -182,6 +191,7 @@ export function PaymentSuccessModal({
             .title { font-size: 15px; margin-bottom: 2px; }
             .subtitle { font-size: 10px; color: #555; }
             .divider { border-top: 1px dashed #777; margin: 8px 0; }
+            .row-flex { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
             .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin-top: 4px; }
             .footer { margin-top: 14px; font-size: 10px; text-align: center; color: #666; }
             @media print {
@@ -192,13 +202,21 @@ export function PaymentSuccessModal({
         <body>
           <div class="center bold title">${storeName}</div>
           <div class="center subtitle">${storeAddress}</div>
-          <div class="center subtitle" style="margin-top: 2px;">${data.transactionId} • ${new Date(data.date).toLocaleDateString("id-ID")}</div>
+          <div class="center subtitle" style="margin-top: 2px;">${data.transactionId} • ${new Date(data.date).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" }).replace(".", ":")} WIB</div>
           <div class="divider"></div>
           <div>${itemsHtml}</div>
           <div class="divider"></div>
           <div class="total-row">
             <span>TOTAL</span>
             <span>${formatCurrency(data.subtotal)}</span>
+          </div>
+          <div class="row-flex" style="margin-top: 5px;">
+            <span>Bayar (${data.paymentMethod === "tunai" ? "Tunai" : "Kasbon"})</span>
+            <span>${formatCurrency(data.nominal ?? data.subtotal)}</span>
+          </div>
+          <div class="row-flex">
+            <span>Kembalian</span>
+            <span>${formatCurrency(data.change ?? 0)}</span>
           </div>
           <div class="footer">Terima kasih sudah berbelanja</div>
           <script>
@@ -248,13 +266,15 @@ ${storeAddress}
 ----------------------------------------
 *STRUK PEMBAYARAN*
 No. Transaksi: ${data.transactionId}
-Tanggal: ${new Date(data.date).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
+Tanggal: ${new Date(data.date).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).replace(".", ":")} WIB
 Metode: ${data.paymentMethod === "tunai" ? "Tunai" : "Kasbon"}
 
 *Rincian Belanja:*
 ${itemsText}
 ----------------------------------------
 *TOTAL: ${formatCurrency(data.subtotal)}*
+Bayar: ${formatCurrency(data.nominal ?? data.subtotal)}
+Kembalian: ${formatCurrency(data.change ?? 0)}
 ----------------------------------------
 Terima kasih sudah berbelanja di *${storeName}*!`;
 
@@ -309,6 +329,13 @@ Terima kasih sudah berbelanja di *${storeName}*!`;
               <div className="mt-0.5 text-[11px] text-slate-500">
                 {storeAddress}
               </div>
+              <div className="mt-1 text-[10px] text-slate-400">
+                {new Date(data.date).toLocaleString("id-ID", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                  timeZone: "Asia/Jakarta",
+                }).replace(".", ":")} WIB
+              </div>
             </div>
 
             {/* Daftar Item */}
@@ -332,6 +359,22 @@ Terima kasih sudah berbelanja di *${storeName}*!`;
             <div className="flex items-center justify-between text-[13px] font-bold text-slate-800">
               <span>TOTAL</span>
               <span>{formatCurrency(data.subtotal)}</span>
+            </div>
+
+            {/* Detail Bayar & Kembalian */}
+            <div className="mt-2 space-y-1 text-[11px] text-slate-600">
+              <div className="flex items-center justify-between">
+                <span>Bayar ({data.paymentMethod === "tunai" ? "Tunai" : "Kasbon"})</span>
+                <span className="font-semibold text-slate-800">
+                  {formatCurrency(data.nominal ?? data.subtotal)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Kembalian</span>
+                <span className="font-semibold text-emerald-700">
+                  {formatCurrency(data.change ?? 0)}
+                </span>
+              </div>
             </div>
 
             {/* Footer Struk */}

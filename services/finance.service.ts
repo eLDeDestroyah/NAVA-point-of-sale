@@ -137,7 +137,8 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
-    });
+      timeZone: "Asia/Jakarta",
+    }).replace(".", ":");
 
     let displayDescription: string;
     let category: string;
@@ -175,7 +176,8 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
-    });
+      timeZone: "Asia/Jakarta",
+    }).replace(".", ":");
 
     if (rec.type === "masuk") {
       totalCashIn += nominal;
@@ -242,7 +244,8 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
       new Date().toLocaleTimeString("id-ID", {
         hour: "2-digit",
         minute: "2-digit",
-      }) + " WIB",
+        timeZone: "Asia/Jakarta",
+      }).replace(".", ":") + " WIB",
     totalIncome,
     totalExpense,
     totalQris,

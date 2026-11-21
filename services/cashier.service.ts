@@ -204,9 +204,18 @@ export async function createCashierTransaction(
 
   // Tentukan nominal bayar & status buyer (kasbon / lunas)
   const isKasbon = input.paymentMethod === "kasbon";
+  const paidInput = Number(input.paidAmount ?? 0);
+
+  // Validasi: jika bukan kasbon, uang yang dibayarkan tidak boleh kurang dari total belanja
+  if (!isKasbon && paidInput < calculatedTotalPrice) {
+    throw new Error(
+      `Uang yang dibayarkan (${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(paidInput)}) kurang dari total pembayaran (${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(calculatedTotalPrice)}).`
+    );
+  }
+
   const paid = isKasbon
-    ? Math.max(0, Number(input.paidAmount ?? 0))
-    : Number(input.paidAmount && input.paidAmount >= calculatedTotalPrice ? input.paidAmount : calculatedTotalPrice);
+    ? Math.max(0, paidInput)
+    : paidInput;
 
   const buyerStatus: BuyerStatus = paid >= calculatedTotalPrice ? "lunas" : "kasbon";
 
