@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertCircle,
   ChevronRight,
   Minus,
   Plus,
@@ -9,6 +10,7 @@ import {
   Search,
   ShoppingBag,
   Wallet,
+  X,
 } from "lucide-react";
 
 import {
@@ -47,6 +49,28 @@ export default function CashierPage() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<TransactionReceiptData | null>(null);
+
+  // Modal alert validasi kustom (menggantikan window.alert)
+  const [validationModal, setValidationModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: "warning" | "danger";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "warning",
+  });
+
+  const showValidationAlert = (title: string, message: string, type: "warning" | "danger" = "warning") => {
+    setValidationModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+    });
+  };
 
   // 1. Ambil produk dari API cashier
   async function fetchProducts(search = "", category = "") {
@@ -97,7 +121,7 @@ export default function CashierPage() {
         const product = products.find((p) => p.id === productId);
         if (!product) return current;
         if (product.stock <= 0) {
-          alert(`Stok produk "${product.name}" habis.`);
+          showValidationAlert("Stok Habis", `Produk "${product.name}" saat ini habis.`, "danger");
           return current;
         }
         return [
@@ -112,7 +136,7 @@ export default function CashierPage() {
             const product = products.find((p) => p.id === productId);
             const targetQty = item.qty + delta;
             if (product && targetQty > product.stock) {
-              alert(`Stok maksimal "${product.name}" hanya ${product.stock}.`);
+              showValidationAlert("Batas Stok", `Stok maksimal untuk "${product.name}" hanya ${product.stock} pcs.`, "warning");
               return item;
             }
             return { ...item, qty: Math.max(0, targetQty) };
@@ -126,7 +150,7 @@ export default function CashierPage() {
   // 2. Kirim transaksi ke backend saat kasir membayar
   const handlePayment = async () => {
     if (cart.length === 0) {
-      alert("Keranjang masih kosong! Silakan pilih produk terlebih dahulu.");
+      showValidationAlert("Keranjang Kosong", "Silakan pilih produk yang ingin dibeli terlebih dahulu.", "warning");
       return;
     }
 
@@ -134,8 +158,10 @@ export default function CashierPage() {
 
     // Validasi: jika bukan kasbon, uang yang dibayarkan tidak boleh kurang dari total pembayaran
     if (paymentMethod !== "kasbon" && paidNum < subtotal) {
-      alert(
-        `Uang yang diterima (${formatCurrency(paidNum)}) kurang dari total pembayaran (${formatCurrency(subtotal)}). Silakan masukkan nominal yang pas atau lebih.`
+      showValidationAlert(
+        "Nominal Pembayaran Kurang",
+        `Uang yang diterima (${formatCurrency(paidNum)}) belum mencukupi total belanja (${formatCurrency(subtotal)}). Kekurangan sebesar ${formatCurrency(subtotal - paidNum)}.`,
+        "danger"
       );
       return;
     }
@@ -188,7 +214,11 @@ export default function CashierPage() {
       await fetchProducts(searchQuery, selectedCategory);
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Terjadi kesalahan pembayaran.");
+      showValidationAlert(
+        "Transaksi Gagal",
+        error instanceof Error ? error.message : "Terjadi kesalahan saat memproses transaksi.",
+        "danger"
+      );
     } finally {
       setIsProcessingPayment(false);
     }
@@ -543,6 +573,53 @@ export default function CashierPage() {
         onClose={handleCloseModal}
         data={receiptData}
       />
+
+      {/* Pop-up Modal Validasi Kustom (Modern Modal) */}
+      {validationModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4 animate-in fade-in duration-150">
+          <div className="relative w-full max-w-[400px] rounded-[28px] bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.18)] animate-in zoom-in-95 duration-150">
+            <button
+              type="button"
+              onClick={() => setValidationModal((prev) => ({ ...prev, isOpen: false }))}
+              className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+                  validationModal.type === "danger"
+                    ? "bg-rose-50 text-rose-600"
+                    : "bg-amber-50 text-amber-600"
+                }`}
+              >
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800">
+                  {validationModal.title}
+                </h3>
+                <p className="text-xs text-slate-500">Periksa kembali data pembayaran</p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm leading-relaxed text-slate-600">
+              {validationModal.message}
+            </p>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setValidationModal((prev) => ({ ...prev, isOpen: false }))}
+                className="w-full rounded-xl bg-[#0d5c4b] py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#09473a] transition active:scale-[0.98]"
+              >
+                Saya Mengerti
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
