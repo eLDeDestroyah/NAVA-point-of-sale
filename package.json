@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@google/genai": "^3.6.1",
     "@hookform/resolvers": "^7.0.2",
     "@prisma/client": "^7.10.1",
     "@supabase/ssr": "^0.12.7",

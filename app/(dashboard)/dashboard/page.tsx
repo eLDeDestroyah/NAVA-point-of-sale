@@ -27,6 +27,13 @@ import {
 } from "recharts";
 import type { DashboardSummary } from "@/services/dashboard.service";
 
+type AiInsight = {
+  headline: string;
+  summary: string;
+  actions: string[];
+  risk: string;
+};
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -39,9 +46,9 @@ const QUICK_ACCESS = [
   { label: "Kasir", sub: "Mulai transaksi", icon: ShoppingBag, href: "/dashboard/cashier", color: "text-emerald-600 bg-emerald-50" },
   { label: "Produk", sub: "Kelola stok", icon: Package, href: "/dashboard/product", color: "text-blue-600 bg-blue-50" },
   { label: "Keuangan", sub: "Lihat detail", icon: Wallet, href: "/dashboard/finance", color: "text-orange-500 bg-orange-50" },
-  { label: "Laporan", sub: "Lihat analitik", icon: BarChart2, href: "/dashboard", color: "text-purple-600 bg-purple-50" },
-  { label: "Chatbot", sub: "Fitur pintar", icon: MessageSquareText, href: "/dashboard", color: "text-sky-600 bg-sky-50" },
-  { label: "Pengaturan", sub: "Lihat detail", icon: Settings, href: "/dashboard", color: "text-slate-500 bg-slate-100" },
+  { label: "Laporan", sub: "Lihat analitik", icon: BarChart2, href: "/dashboard/report", color: "text-purple-600 bg-purple-50" },
+  { label: "Chatbot", sub: "Fitur pintar", icon: MessageSquareText, href: "/dashboard/chatbot", color: "text-sky-600 bg-sky-50" },
+  { label: "Pengaturan", sub: "Lihat detail", icon: Settings, href: "/dashboard/settings", color: "text-slate-500 bg-slate-100" },
 ];
 
 function LineChart({ data }: { data: { label: string; value: number }[] }) {
@@ -110,6 +117,7 @@ function LineChart({ data }: { data: { label: string; value: number }[] }) {
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [aiInsight, setAiInsight] = useState<AiInsight | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [chartPeriod, setChartPeriod] = useState<"7 Hari" | "30 Hari" | "3 Bulan">("7 Hari");
 
@@ -117,10 +125,14 @@ export default function DashboardPage() {
     async function loadData() {
       try {
         setIsLoading(true);
-        const res = await fetch("/api/dashboard", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          setSummary(data);
+        const [dashboardResponse, aiResponse] = await Promise.all([
+          fetch("/api/dashboard", { cache: "no-store" }),
+          fetch("/api/ai?mode=insight", { cache: "no-store" }),
+        ]);
+        if (dashboardResponse.ok) setSummary(await dashboardResponse.json());
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          setAiInsight(aiData.data ?? null);
         }
       } catch (err) {
         console.error("Gagal memuat dashboard:", err);
@@ -284,24 +296,27 @@ export default function DashboardPage() {
           </div>
           <h3 className="mt-3 text-sm font-bold text-slate-800">Ringkasan dari Asisten</h3>
           <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-            {summary?.assistantSummary?.description ||
+            {aiInsight?.summary ||
+              summary?.assistantSummary?.description ||
               "Penjualan toko terpantau aktif. Pastikan stok barang yang menipis segera dilakukan kulakan."}
           </p>
           <div className="mt-4 flex items-start gap-2.5 rounded-2xl bg-amber-50 px-3.5 py-3 border border-amber-100">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
             <p className="text-xs font-semibold text-amber-700">
-              Potensi kehilangan omzet{" "}
-              <span className="text-amber-800">
-                {formatCurrency(summary?.assistantSummary?.potentialLoss || 320000)}
-              </span>
+              {aiInsight?.risk || `Potensi kehilangan omzet ${formatCurrency(summary?.assistantSummary?.potentialLoss || 0)}`}
             </p>
           </div>
+          {aiInsight?.actions.length ? (
+            <ul className="mt-3 space-y-1 text-xs text-slate-600">
+              {aiInsight.actions.map((action) => <li key={action}>• {action}</li>)}
+            </ul>
+          ) : null}
           <Link
-            href="/dashboard/product"
+            href="/dashboard/chatbot"
             className="mt-4 flex items-center gap-1.5 text-xs font-bold text-[#0b5c46] hover:underline"
           >
             <ArrowRight className="h-3.5 w-3.5" />
-            Lihat daftar kulakan
+            Tanya NAVA AI
           </Link>
         </div>
       </div>
