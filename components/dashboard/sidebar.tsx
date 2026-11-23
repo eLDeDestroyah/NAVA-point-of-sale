@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  ArrowRight,
   LayoutGrid,
   LogOut,
   MessageSquareText,
@@ -113,7 +112,8 @@ export function Sidebar({ currentUser }: { currentUser?: SidebarUser | null }) {
               ? pathname === "/dashboard"
               : pathname === href || pathname.startsWith(href + "/");
 
-          const isComingSoon = false;
+          // Halaman belum ada (Laporan, Pengaturan) — tampil disabled
+          const isComingSoon = ["/dashboard/report", "/dashboard/settings"].includes(href);
 
           return (
             <Link
