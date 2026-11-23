@@ -112,8 +112,8 @@ export function Sidebar({ currentUser }: { currentUser?: SidebarUser | null }) {
               ? pathname === "/dashboard"
               : pathname === href || pathname.startsWith(href + "/");
 
-          // Halaman belum ada (Laporan, Pengaturan) — tampil disabled
-          const isComingSoon = ["/dashboard/report", "/dashboard/settings"].includes(href);
+          // Halaman belum ada — tampil disabled jika memang belum dibuat
+          const isComingSoon = false;
 
           return (
             <Link

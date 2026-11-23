@@ -161,36 +161,6 @@ export default function ReportPage() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 pb-10">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-emerald-800">
-            {dashboard?.shopName || "NAVA MART"}
-          </div>
-          <h1 className="mt-1 text-[28px] font-bold tracking-tight text-slate-800">
-            Selamat pagi, {dashboard?.userName || "Pemilik Toko"}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Tema terang"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-emerald-700 shadow-sm"
-          >
-            <Sun className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Tema gelap"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm"
-          >
-            <Moon className="h-4 w-4" />
-          </button>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-700 text-xs font-black text-white shadow-sm">
-            {(dashboard?.userName || "AS").slice(0, 2).toUpperCase()}
-          </div>
-        </div>
-      </div>
-
       <section className="rounded-[28px] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] sm:px-6">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
