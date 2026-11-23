@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
-  ArrowUpRight,
   BarChart2,
   CheckCircle2,
   MessageSquareText,
