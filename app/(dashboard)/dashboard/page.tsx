@@ -15,6 +15,7 @@ import {
   Sparkles,
   TrendingUp,
   Wallet,
+  Lock,
 } from "lucide-react";
 import {
   Area,
@@ -274,35 +275,45 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* AI Summary */}
-        <div className="flex flex-col rounded-[28px] border border-purple-100 bg-gradient-to-br from-white to-purple-50/40 p-6 shadow-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100">
-              <Sparkles className="h-5 w-5 text-purple-600" />
+        {/* AI Summary - Blurred with Lock */}
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-purple-100 bg-gradient-to-br from-white to-purple-50/40 p-6 shadow-xs">
+          {/* Konten Asli di-Blur */}
+          <div className="select-none blur-sm filter pointer-events-none transition-all">
+            <div className="flex items-center justify-between">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100">
+                <Sparkles className="h-5 w-5 text-purple-600" />
+              </div>
+              <span className="text-[10px] font-bold tracking-widest text-purple-500">NAVA AI</span>
             </div>
-            <span className="text-[10px] font-bold tracking-widest text-purple-500">NAVA AI</span>
-          </div>
-          <h3 className="mt-3 text-sm font-bold text-slate-800">Ringkasan dari Asisten</h3>
-          <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-            {summary?.assistantSummary?.description ||
-              "Penjualan toko terpantau aktif. Pastikan stok barang yang menipis segera dilakukan kulakan."}
-          </p>
-          <div className="mt-4 flex items-start gap-2.5 rounded-2xl bg-amber-50 px-3.5 py-3 border border-amber-100">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-            <p className="text-xs font-semibold text-amber-700">
-              Potensi kehilangan omzet{" "}
-              <span className="text-amber-800">
-                {formatCurrency(summary?.assistantSummary?.potentialLoss || 320000)}
-              </span>
+            <h3 className="mt-3 text-sm font-bold text-slate-800">Ringkasan dari Asisten</h3>
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+              {summary?.assistantSummary?.description ||
+                "Penjualan toko terpantau aktif. Pastikan stok barang yang menipis segera dilakukan kulakan."}
             </p>
+            <div className="mt-4 flex items-start gap-2.5 rounded-2xl bg-amber-50 px-3.5 py-3 border border-amber-100">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+              <p className="text-xs font-semibold text-amber-700">
+                Potensi kehilangan omzet{" "}
+                <span className="text-amber-800">
+                  {formatCurrency(summary?.assistantSummary?.potentialLoss || 320000)}
+                </span>
+              </p>
+            </div>
+            <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-[#0b5c46]">
+              <ArrowRight className="h-3.5 w-3.5" />
+              Lihat daftar kulakan
+            </div>
           </div>
-          <Link
-            href="/dashboard/product"
-            className="mt-4 flex items-center gap-1.5 text-xs font-bold text-[#0b5c46] hover:underline"
-          >
-            <ArrowRight className="h-3.5 w-3.5" />
-            Lihat daftar kulakan
-          </Link>
+
+          {/* Overlay Kunci Gembok */}
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/40 p-4 backdrop-blur-[2px]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900/80 text-white shadow-lg shadow-purple-900/10 backdrop-blur-md">
+              <Lock className="h-6 w-6 text-amber-300" />
+            </div>
+            <span className="mt-2.5 rounded-full bg-slate-900/75 px-3 py-1 text-[11px] font-semibold tracking-wide text-white shadow-xs">
+              Fitur Terkunci
+            </span>
+          </div>
         </div>
       </div>
 
