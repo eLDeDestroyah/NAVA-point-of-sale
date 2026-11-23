@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Send, Sparkles, User, Bot } from "lucide-react";
+import { ArrowRight, Send, User } from "lucide-react";
 
 interface Message {
   id: string;
@@ -80,7 +80,7 @@ export default function ChatbotPage() {
       };
 
       setMessages((prev) => [...prev, botMsg]);
-    } catch (err) {
+    } catch {
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: "bot",
