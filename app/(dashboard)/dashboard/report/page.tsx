@@ -1,10 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Download, TrendingUp, Wallet, Package, ReceiptText, Sparkles, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BarChart3, Moon, Sparkles, Sun } from "lucide-react";
+import {
+  CategoryScale,
+  Chart as ChartJS,
+  Filler,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Tooltip,
+} from "chart.js";
+import { Line } from "react-chartjs-2";
 
 import type { DashboardSummary } from "@/services/dashboard.service";
 import type { FinanceSummary } from "@/types/finance.type";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+  Filler,
+);
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -14,37 +35,20 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-function exportCsv(dashboard: DashboardSummary, finance: FinanceSummary) {
-  const rows = [
-    ["Metrik", "Nilai"],
-    ["Omzet hari ini", String(dashboard.omzetToday)],
-    ["Laba bersih hari ini", String(dashboard.labaBersihToday)],
-    ["Jumlah transaksi hari ini", String(dashboard.transaksiToday)],
-    ["Saldo kas", String(finance.currentBalance)],
-    ["Total pemasukan", String(finance.totalIncome)],
-    ["Total pengeluaran", String(finance.totalExpense)],
-    ["Piutang aktif", String(finance.totalPiutangAktif)],
-  ];
-  const csv = rows.map((row) => row.map((value) => `"${value.replace(/"/g, '""')}"`).join(",")).join("\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `laporan-nava-${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
+type AiReport = {
+  headline: string;
+  summary: string;
+  opportunities: string[];
+  risks: string[];
+};
 
 export default function ReportPage() {
   const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
   const [finance, setFinance] = useState<FinanceSummary | null>(null);
-  const [aiReport, setAiReport] = useState<{
-    headline: string;
-    summary: string;
-    opportunities: string[];
-    risks: string[];
-  } | null>(null);
+  const [aiReport, setAiReport] = useState<AiReport | null>(null);
   const [aiError, setAiError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [chartPeriod, setChartPeriod] = useState<"7 Hari" | "30 Hari" | "3 Bulan">("7 Hari");
 
   useEffect(() => {
     async function load() {
@@ -54,135 +58,229 @@ export default function ReportPage() {
           fetch("/api/finance", { cache: "no-store" }),
           fetch("/api/ai?mode=report", { cache: "no-store" }),
         ]);
+
         if (dashboardResponse.ok) setDashboard(await dashboardResponse.json());
         if (financeResponse.ok) setFinance(await financeResponse.json());
+
         if (aiResponse.ok) {
-          const aiPayload = await aiResponse.json();
-          setAiReport(aiPayload.data ?? null);
+          const payload = await aiResponse.json();
+          setAiReport(payload.data ?? null);
         } else {
-          const aiPayload = await aiResponse.json();
-          setAiError(aiPayload.error || "Insight laporan belum tersedia.");
+          const payload = await aiResponse.json();
+          setAiError(payload.error || "Insight laporan belum tersedia.");
         }
       } finally {
         setIsLoading(false);
       }
     }
+
     void load();
   }, []);
 
-  const cards = [
-    { label: "Omzet hari ini", value: formatCurrency(dashboard?.omzetToday ?? 0), icon: TrendingUp, color: "text-emerald-700 bg-emerald-50" },
-    { label: "Laba bersih", value: formatCurrency(dashboard?.labaBersihToday ?? 0), icon: Wallet, color: "text-blue-700 bg-blue-50" },
-    { label: "Saldo kas", value: formatCurrency(finance?.currentBalance ?? 0), icon: ReceiptText, color: "text-orange-700 bg-orange-50" },
-    { label: "Piutang aktif", value: formatCurrency(finance?.totalPiutangAktif ?? 0), icon: Package, color: "text-purple-700 bg-purple-50" },
-  ];
+  const salesData = dashboard?.salesData[chartPeriod] ?? [];
+
+  const chartData = useMemo(
+    () => ({
+      labels: salesData.map((item) => item.label),
+      datasets: [
+        {
+          label: "Penjualan",
+          data: salesData.map((item) => item.value),
+          borderColor: "#0b8f65",
+          backgroundColor: "rgba(11, 143, 101, 0.10)",
+          borderWidth: 3,
+          pointBackgroundColor: "#ffffff",
+          pointBorderColor: "#0b8f65",
+          pointBorderWidth: 3,
+          pointRadius: 6,
+          pointHoverRadius: 7,
+          tension: 0.38,
+          fill: true,
+        },
+      ],
+    }),
+    [salesData],
+  );
+
+  const chartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: "index" as const,
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#12372c",
+          titleColor: "#a7f3d0",
+          bodyColor: "#ffffff",
+          padding: 12,
+          cornerRadius: 10,
+          displayColors: false,
+          callbacks: {
+            label: (context: { parsed: { y: number | null } }) =>
+              formatCurrency(context.parsed.y ?? 0),
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false, drawBorder: false },
+          ticks: {
+            color: "#94a3b8",
+            font: { size: 11, weight: 600 },
+          },
+          border: { display: false },
+        },
+        y: {
+          beginAtZero: true,
+          border: { display: false },
+          grid: {
+            color: "#edf2ef",
+            drawBorder: false,
+          },
+          ticks: {
+            color: "#94a3b8",
+            font: { size: 10, weight: 600 },
+            callback: (value: number | string) => {
+              const amount = Number(value);
+              if (amount >= 1_000_000) return `${amount / 1_000_000} jt`;
+              if (amount >= 1_000) return `${amount / 1_000} rb`;
+              return String(amount);
+            },
+          },
+        },
+      },
+    }),
+    [],
+  );
+
+  const debtors = finance?.debtors ?? [];
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-[1600px] space-y-6 pb-10">
+      <div className="flex items-start justify-between">
         <div>
-          <div className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Analitik toko</div>
-          <h1 className="mt-1 text-[28px] font-bold text-slate-800">Laporan</h1>
+          <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-emerald-800">
+            {dashboard?.shopName || "NAVA MART"}
+          </div>
+          <h1 className="mt-1 text-[28px] font-bold tracking-tight text-slate-800">
+            Selamat pagi, {dashboard?.userName || "Pemilik Toko"}
+          </h1>
         </div>
-        <button
-          type="button"
-          disabled={!dashboard || !finance}
-          onClick={() => dashboard && finance && exportCsv(dashboard, finance)}
-          className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          <Download className="h-4 w-4" /> Unduh CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Tema terang"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-emerald-700 shadow-sm"
+          >
+            <Sun className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Tema gelap"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm"
+          >
+            <Moon className="h-4 w-4" />
+          </button>
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-700 text-xs font-black text-white shadow-sm">
+            {(dashboard?.userName || "AS").slice(0, 2).toUpperCase()}
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {cards.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="rounded-[24px] border border-slate-200/80 bg-white p-5">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5" /></div>
-            <div className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-400">{label}</div>
-            <div className="mt-1 text-xl font-extrabold text-slate-800">{isLoading ? "Memuat..." : value}</div>
+      <section className="rounded-[28px] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] sm:px-6">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-slate-800">Penjualan</h2>
+            <p className="mt-0.5 text-xs text-slate-400">Perbandingan pendapatan berdasarkan periode</p>
           </div>
-        ))}
-      </div>
-
-      <section className="relative overflow-hidden rounded-[28px] border border-purple-100 bg-gradient-to-br from-white via-white to-purple-50/60 p-6">
-        <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-purple-100/40 blur-3xl" />
-        <div className="relative flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
-            <Sparkles className="h-5 w-5" />
+          <div className="flex shrink-0 rounded-full bg-slate-100 p-1" aria-label="Filter periode laporan">
+            {(["7 Hari", "30 Hari", "3 Bulan"] as const).map((period) => (
+              <button
+                key={period}
+                type="button"
+                onClick={() => setChartPeriod(period)}
+                aria-pressed={chartPeriod === period}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  chartPeriod === period
+                    ? "bg-[#0b8f65] text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {period}
+              </button>
+            ))}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-purple-600">NAVA AI Insight</div>
-                <h2 className="mt-1 text-lg font-bold text-slate-800">
-                  {aiReport?.headline || "Analisis performa toko"}
-                </h2>
-              </div>
-              <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600" aria-label="Output terverifikasi" />
+        </div>
+        <div className="flex h-[280px] w-full">
+          {isLoading ? (
+            <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
+              Memuat grafik penjualan...
             </div>
-
-            {aiReport ? (
-              <>
-                <p className="mt-3 text-sm leading-relaxed text-slate-600">{aiReport.summary}</p>
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700">Peluang</h3>
-                    <ul className="mt-2 space-y-2">
-                      {aiReport.opportunities.map((item) => (
-                        <li key={item} className="flex gap-2 text-sm text-slate-700">
-                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-amber-700">Risiko</h3>
-                    <ul className="mt-2 space-y-2">
-                      {aiReport.risks.map((item) => (
-                        <li key={item} className="flex gap-2 text-sm text-slate-700">
-                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="mt-3 text-sm text-slate-500">
-                {isLoading ? "NAVA AI sedang menganalisis laporan..." : aiError || "Insight laporan belum tersedia."}
-              </p>
-            )}
-          </div>
+          ) : (
+            <Line data={chartData} options={chartOptions} />
+          )}
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-[28px] border border-slate-200/80 bg-white p-6">
-          <h2 className="text-base font-bold text-slate-800">Penjualan 7 hari</h2>
-          <div className="mt-5 space-y-3">
-            {(dashboard?.salesData["7 Hari"] ?? []).map((item) => (
-              <div key={item.label} className="flex items-center justify-between border-b border-slate-100 pb-3 text-sm">
-                <span className="text-slate-500">{item.label}</span>
-                <span className="font-bold text-slate-800">{formatCurrency(item.value)}</span>
-              </div>
-            ))}
+      <section className="rounded-[28px] border border-slate-200/80 bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
+        <div>
+          <h2 className="text-[18px] font-bold text-slate-800">Ringkasan Kasbon</h2>
+          <p className="mt-1 text-xs text-slate-400">Piutang pelanggan yang masih aktif</p>
+        </div>
+
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[680px] text-left">
+            <thead>
+              <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <th className="pb-3 pr-4">Pelanggan</th>
+                <th className="pb-3 pr-4">Total Kasbon</th>
+                <th className="pb-3 pr-4">Terbayar</th>
+                <th className="pb-3">Sisa</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {debtors.map((debtor) => (
+                <tr key={debtor.id} className="text-sm">
+                  <td className="py-4 pr-4 font-semibold text-slate-700">{debtor.name}</td>
+                  <td className="py-4 pr-4 text-slate-600">{formatCurrency(debtor.total_price)}</td>
+                  <td className="py-4 pr-4 text-slate-600">{formatCurrency(debtor.paid)}</td>
+                  <td className="py-4 font-semibold text-slate-700">{formatCurrency(debtor.remaining)}</td>
+                </tr>
+              ))}
+              {debtors.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-sm text-slate-400">
+                    Tidak ada kasbon aktif saat ini.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-purple-100 bg-gradient-to-br from-white to-purple-50/50 p-6">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
+            <Sparkles className="h-4 w-4" />
           </div>
-        </section>
-        <section className="rounded-[28px] border border-slate-200/80 bg-white p-6">
-          <h2 className="text-base font-bold text-slate-800">Produk yang perlu diperhatikan</h2>
-          <div className="mt-5 space-y-3">
-            {(dashboard?.lowStockProducts ?? []).map((product) => (
-              <div key={product.id} className="flex items-center justify-between border-b border-slate-100 pb-3 text-sm">
-                <span className="text-slate-700">{product.name}</span>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${product.status === "habis" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{product.stock}</span>
-              </div>
-            ))}
-            {(dashboard?.lowStockProducts ?? []).length === 0 && <p className="text-sm text-slate-400">Tidak ada produk yang menipis atau habis.</p>}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-slate-800">
+                {aiReport?.headline || "NAVA AI Insight"}
+              </h2>
+              <BarChart3 className="h-4 w-4 text-purple-500" />
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              {aiReport?.summary || (isLoading ? "Menganalisis laporan toko..." : aiError)}
+            </p>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

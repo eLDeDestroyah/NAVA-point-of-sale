@@ -22,6 +22,12 @@ function getClientKey(request: Request, userId: string) {
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "Layanan AI gagal diproses.";
+  if (message.includes("503") || message.includes("UNAVAILABLE") || message.includes("high demand")) {
+    return NextResponse.json(
+      { error: "Gemini sedang sibuk. Silakan coba lagi beberapa saat." },
+      { status: 503 },
+    );
+  }
   if (
     !message.includes("Batas penggunaan") &&
     !message.includes("belum dikonfigurasi") &&
